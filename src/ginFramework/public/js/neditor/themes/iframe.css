@@ -1,0 +1,17 @@
+/*可以在这里添加你自己的css*/
+img {
+    max-width: 100%;
+    height: auto;
+}
+body{
+	font-family: '微软雅黑';
+}
+table {
+	max-width:100%;
+}
+pre{
+	white-space: pre-wrap;
+}
+img {
+	max-width:100% !important;
+}

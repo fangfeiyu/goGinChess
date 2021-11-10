@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title></title>
+    <meta http-equiv="content-type" content="text/html;charset=utf-8">
+    <style>
+        p {
+            text-align: left;
+            padding-left: 20px;
+        }
+    </style>
+	<script type="text/javascript" src="../public/js/jquery-3.2.1.js"></script>
+</head>
+<body>
+
+<div>
+    <form action="/login/auth" method="post">
+        手机号：<input name="user_name" value="{{ .user_name }}">
+        <button>提交</button>
+    </form>
+</div>
+
+<input type="hidden" name="msg" value="{{ .code }}">
+<script>
+    $(function() {
+        if ($("[name=msg]").val()) {
+            alert($("[name=msg]").val())
+        }
+    })
+</script>

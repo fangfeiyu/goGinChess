@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title></title>
+    <meta http-equiv="content-type" content="text/html;charset=utf-8">
+    <style>
+        p {
+            text-align: left;
+            padding-left: 20px;
+        }
+    </style>
+	<script type="text/javascript" src="../public/js/jquery-3.2.1.js"></script>
+</head>
+<body>
+<div style="float: left;">
+    <input type="button" name="checkout_room" value="切换房间" >
+    <input type="button" name="enter_game" value="加入游戏" >
+    <input type="button" name="logout" value="登出" >
+    <input value="{{ .room_id }}" name="room_id" type="hidden">
+    <input value="{{ .userName }}" name="user_name" type="hidden">
+    <div style="width: 350px;">
+        <h4>大厅聊天<span class="room_id"></span></h4>
+        <div style="width: 100px;height: 300px;float: left;text-align: left;">
+            <p><span>当前在线:</span><span id="user_num">0</span></p>
+            <div id="user_list" style="overflow: auto; margin-left: 20px;">
+            </div>
+        </div>
+        <div style="width: 248px;border:  1px solid gray; height: 350px;float: left;">
+            <div id="msg_list" style="height: 290px; overflow:auto">
+
+            </div>
+            <input id="msg_box" style="width: 200px; margin-left: 20px;" onkeydown="13 == event.keyCode ? send() : ''"><br>
+            <input type="button" style="margin: 5px 0 5px 20px;" value="发送" onclick="send()">
+        </div>
+    </div>
+    <br>
+</div>
+
+<div name="room_msg_div" style="width: 350px;border: 1px solid gray;height: 350px; float: right; display: none;">
+    <div style="width: 100px;height: 300px;float: left;text-align: left;">
+        <p><span>房间聊天:</span><span id="room_user_num">0</span></p>
+        <div id="room_user_list" style="overflow: auto; margin-left: 20px;">
+        </div>
+    </div>
+    <div style="width: 248px;border-left: 1px solid gray; height: 350px;float: left;">
+        <div id="room_msg_list" style="height: 290px; overflow:auto">
+
+        </div>
+        <input id="room_msg_box" style="width: 200px; margin-left: 20px;"><br>
+        <input type="button" style="margin: 5px 0 5px 20px;" value="发送" onclick="roomMsgSend()">
+    </div>
+</div>
+
+<div name="userOpratePath" style="top: 80%; left: 45%; display: none; position: absolute; width: 200px; border: 0px">
+    <input type="button" value="弃牌" name="userDiscard">
+    <input type="button" value="比牌" name="">
+    <input type="button" value="过牌" name="pass">
+</div>
+
+<div name="robotOprateButton" style="top: 80%; left: 45%; display: none; position: absolute; width: 200px; border: 0px">
+    <input type="button" value="过牌" name="pass">
+    <input type="button" value="弃牌" name="discard">
+</div>
+
+<span name="cardShowSpan" style="top: 85%; left: 45%; position: absolute; width: 200px; border: 0px"></span>
+<input type="button" value="开始游戏" name="game_start" style="top: 90%; left: 45%; position: absolute; display: none;">
+</body>
+</html>
+<script type="text/javascript">
+    var uname = $("[name=user_name]").val();
+    var room_id = $("[name=room_id]").val();
+
+    var gameWs;
+    if (room_id == "") {
+        room_id = "1"
+    }
+
+    $(function() {
+        $("[name=checkout_room]").click(function() {
+            room_id = room_id == '1' ? '2' : '1'
+            sendMsg({"type": "checkout_room", "room_id": room_id})
+        });
+
+        $("[name=enter_game]").click(function() {
+            $("[name=room_msg_div]").show()
+            $("[name=game_start]").show()
+            if (!gameWs) {
+                gameWs = new WebSocket("ws://127.0.0.1:8000/gameWs");
+                gameWs.onopen = function () {
+                    gameWs.send(JSON.stringify({"type": "joinGame", "name": uname, "roomId" : "1"}))
+                };
+                gameWs.onmessage = function (e) {
+                    var msg = JSON.parse(e.data);
+                    var sender, user_name, name_list, change_type;
+                
+                    switch (msg.type) {
+                        case 'system':
+                            sender = "系统消息: "
+                            break;
+                        case 'user':
+                            sender = msg.from + ': ';
+                            break;
+                        case 'gameInit':
+                            $("[name=game_start]").hide()
+                            let cardStr = ""
+                            let flowerColorToName = {1: "红桃", 2: "黑桃", 3: "草花", 4: "方块"}
+                            for (let i in msg.userCard) {
+                                let num = msg.userCard[i]["num"] == 11 ? "J" : (msg.userCard[i]["num"] == 12 ? "Q" : (msg.userCard[i]["num"] == 13 ? "K" : (msg.userCard[i]["num"])))
+                                cardStr += flowerColorToName[msg.userCard[i]["flower"]] + "-" + num + (i == 2 ? "" : " | ")
+                            }
+                            $("[name=cardShowSpan]").text(cardStr)
+                            if (msg.turnIndex.indexOf("robot") !== -1) {
+                                $("[name=robotOprateButton]").show()
+                                $("#room_msg_list").append("<p>等待"+ msg.turnIndex +"出牌</p>");
+                            } else {
+                                $("[name=userOpratePath]").show()
+                                $("#room_msg_list").append("<p>轮到你操作了</p>");
+                            }
+                            return;
+                        case 'gameTurnChange':
+                            $("#room_msg_list").append("<p>操作："+ msg.operate +"</p>");
+                            if (msg.turnIndex.indexOf("robot") !== -1) {
+                                $("[name=robotOprateButton]").show()
+                                $("[name=userOpratePath]").hide()
+                                $("#room_msg_list").append("<p>等待"+ msg.turnIndex +"出牌</p>");
+                            } else {
+                                $("[name=userOpratePath]").show()
+                                $("[name=robotOprateButton]").hide()
+                                $("#room_msg_list").append("<p>轮到你操作了</p>");
+                            }
+                            return;
+                        case 'logout':
+                            return;
+                    }
+                    var data = sender + msg.content;
+                    $("#room_msg_list").append("<p>" + data + "</p>");
+                };
+            }
+        });
+
+        $("[name=game_start]").click(function() {
+            sendMsg({"type": "startGame", "roomId": "1"}, "gameWs")
+        });
+
+        $("[name=pass]").click(function() {
+            sendMsg({"type": "pass", "roomId": "1"}, "gameWs")
+        })
+        $("[name=discard]").click(function() {
+            sendMsg({"type": "discard", "roomId": "1", "user": "robot"}, "gameWs")
+        })
+        $("[name=userDiscard]").click(function() {
+            sendMsg({"type": "discard", "roomId": "1", "user": "user"}, "gameWs")
+        })
+    })
+
+
+    var ws = new WebSocket("ws://127.0.0.1:8000/ws");
+    ws.onopen = function () {
+        sendMsg({"type": "login", "name": uname, "room_id": room_id})
+    };
+    ws.onmessage = function (e) {
+        var msg = JSON.parse(e.data);
+        var sender, user_name, name_list, change_type;
+		if (msg.type == "handReturn") {
+			return;
+		}
+        switch (msg.type) {
+            case 'system':
+                sender = '系统消息: ';
+                var user_list = msg.userList
+                $("#user_num").empty().text(msg.linkNum);
+                $("[name=room_id]").val(msg.room_id)
+                $(".room_id").empty().text(msg.room_id)
+                user_list = JSON.parse(user_list)
+                $("#user_list").empty();
+                for (i in user_list) {
+                    $("#user_list").append("<div>"+ user_list[i] +"</div>")
+                }
+                break;
+            case 'user':
+                sender = msg.from + ': ';
+                break;
+            case 'handshake':
+                sendMsg({'type': 'login', 'content': uname});
+                return;
+            case 'logout':
+                sender = '系统消息: ';
+                var name = msg.name;
+                var data = sender + "用户“" + name + "”已离开本聊天室"
+                $("#msg_list").append("<p>" + data + "</p>");
+                return;
+        }
+        var data = sender + msg.content;
+        $("#msg_list").append("<p>" + data + "</p>");
+    };
+
+    function send() {
+        var content = $("#msg_box").val()
+        var msg = {'content': content.trim(), 'type': 'user'};
+        sendMsg(msg);
+        $("#msg_box").val("")
+    }
+
+    function roomMsgSend() {
+        var content = $("#room_msg_box").val()
+        var msg = {'content': content.trim(), 'type': 'user', 'roomId': '1'};
+        gameWs.send(JSON.stringify(msg));
+        $("#room_msg_box").val("")
+    }
+
+    function sendMsg(msg, type = "ws") {
+        var data = JSON.stringify(msg);
+        if (type == "ws") {
+            ws.send(data);
+        } else {
+            gameWs.send(data);
+        }
+    }
+
+</script>

@@ -2,12 +2,12 @@ package conf
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 )
 
 type Config struct {
 	Mysql DatabaseConfig `json:"mysql"`
+	Redis RedisConfig    `json:"redis"`
 }
 
 type DatabaseConfig struct {
@@ -18,13 +18,18 @@ type DatabaseConfig struct {
 	DbName   string `json:"dbName"`
 }
 
+type RedisConfig struct {
+	Addr     string `json"addr"`
+	Password string `json"password"`
+	Port     string `json"port"`
+}
+
 var Cfg *Config = nil
 
 func InitConf() {
 	file, _ := os.Open("./conf/app.json")
 	decoder := json.NewDecoder(file)
 	err := decoder.Decode(&Cfg)
-	fmt.Println(Cfg)
 	if err != nil {
 	}
 }

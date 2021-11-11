@@ -12,10 +12,6 @@ import (
 var DB *sqlx.DB
 
 func InitDB() {
-	fmt.Println(conf.Cfg)
-
-	fmt.Println("1111")
-
 	//构建连接："用户名:密码@tcp(IP:端口)/数据库?charset=utf8"
 	path := strings.Join([]string{conf.Cfg.Mysql.UserName, ":", conf.Cfg.Mysql.Password, "@tcp(", conf.Cfg.Mysql.Ip, ":", conf.Cfg.Mysql.Port, ")/", conf.Cfg.Mysql.DbName, "?charset=utf8&parseTime=true"}, "")
 	//打开数据库,前者是驱动名，所以要导入： _ "github.com/go-sql-driver/mysql"
@@ -29,5 +25,4 @@ func InitDB() {
 		fmt.Println("open database fail")
 		return
 	}
-	fmt.Println("connnect success")
 }
